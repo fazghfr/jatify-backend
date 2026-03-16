@@ -9,9 +9,15 @@ import (
 	"job-tracker/internal/repository"
 	"job-tracker/internal/server"
 	"job-tracker/internal/service"
+
+	"github.com/joho/godotenv"
 )
 
 func main() {
+	err := godotenv.Load()
+	if err != nil {
+		log.Println(".env file not found")
+	}
 	cfg := config.Load()
 
 	db, err := database.Connect(cfg)

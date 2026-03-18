@@ -47,6 +47,7 @@ type NotionService interface {
 	ListDatabases(userID int) ([]dto.NotionDatabaseItem, error)
 	Sync(userID int) (*dto.NotionSyncResult, error)
 	Disconnect(userID int) error
+	RawPages(userID int) ([]notionapi.Page, error)
 }
 
 type notionService struct {
@@ -381,6 +382,10 @@ func (s *notionService) Sync(userID int) (*dto.NotionSyncResult, error) {
 		} else {
 			// Diff and update if changed
 			changed := false
+			if existing.DeletedAt.Valid {
+				existing.DeletedAt = gorm.DeletedAt{}
+				changed = true
+			}
 			if existing.StatusID != statusID {
 				prevStatusID := existing.StatusID
 				existing.StatusID = statusID
@@ -422,4 +427,20 @@ func (s *notionService) Sync(userID int) (*dto.NotionSyncResult, error) {
 // Disconnect removes the Notion integration for the user.
 func (s *notionService) Disconnect(userID int) error {
 	return s.notionRepo.DeleteByUserID(userID)
+}
+
+// RawPages returns the raw Notion pages from the configured database without any mapping.
+func (s *notionService) RawPages(userID int) ([]notionapi.Page, error) {
+	integration, err := s.notionRepo.FindByUserID(userID)
+	if err != nil {
+		if errors.Is(err, gorm.ErrRecordNotFound) {
+			return nil, ErrNotionNotConnected
+		}
+		return nil, err
+	}
+	if integration.DatabaseID == "" {
+		return nil, ErrNotionDatabaseNotSet
+	}
+	nc := s.notionClientFactory(integration.AccessToken)
+	return nc.QueryDatabase(context.Background(), integration.DatabaseID)
 }

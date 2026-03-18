@@ -73,6 +73,7 @@ func RegisterRoutes(
 			notion.GET("/databases", notionHandler.ListDatabases)
 			notion.POST("/sync", notionHandler.Sync)
 			notion.DELETE("/disconnect", notionHandler.Disconnect)
+			notion.GET("/debug/pages", notionHandler.DebugPages)
 		}
 	}
 }

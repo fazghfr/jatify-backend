@@ -69,6 +69,40 @@ func TestExtractSelect_EmptyName(t *testing.T) {
 	}
 }
 
+// --- ExtractMultiSelectLast ---
+
+func TestExtractMultiSelectLast_Single(t *testing.T) {
+	prop := &notionapi.MultiSelectProperty{
+		MultiSelect: []notionapi.Option{{Name: "Applied"}},
+	}
+	if got := ExtractMultiSelectLast(prop); got != "Applied" {
+		t.Errorf("got %q, want %q", got, "Applied")
+	}
+}
+
+func TestExtractMultiSelectLast_Multiple(t *testing.T) {
+	prop := &notionapi.MultiSelectProperty{
+		MultiSelect: []notionapi.Option{{Name: "Applied"}, {Name: "Ghosted"}},
+	}
+	if got := ExtractMultiSelectLast(prop); got != "Ghosted" {
+		t.Errorf("got %q, want %q", got, "Ghosted")
+	}
+}
+
+func TestExtractMultiSelectLast_Empty(t *testing.T) {
+	prop := &notionapi.MultiSelectProperty{MultiSelect: []notionapi.Option{}}
+	if got := ExtractMultiSelectLast(prop); got != "" {
+		t.Errorf("got %q, want %q", got, "")
+	}
+}
+
+func TestExtractMultiSelectLast_WrongType(t *testing.T) {
+	prop := &notionapi.SelectProperty{Select: notionapi.Option{Name: "Applied"}}
+	if got := ExtractMultiSelectLast(prop); got != "" {
+		t.Errorf("got %q, want %q", got, "")
+	}
+}
+
 // --- MapPage ---
 
 func TestMapPage_AllFields(t *testing.T) {
@@ -78,7 +112,7 @@ func TestMapPage_AllFields(t *testing.T) {
 			"Company":      &notionapi.TitleProperty{Title: []notionapi.RichText{{PlainText: "Acme"}}},
 			"Position":     &notionapi.RichTextProperty{RichText: []notionapi.RichText{{PlainText: "Engineer"}}},
 			"Description":  &notionapi.RichTextProperty{RichText: []notionapi.RichText{{PlainText: "Some desc"}}},
-			"Status":       &notionapi.SelectProperty{Select: notionapi.Option{Name: "Applied"}},
+			"Status":       &notionapi.MultiSelectProperty{MultiSelect: []notionapi.Option{{Name: "Applied"}}},
 			"Cover Letter": &notionapi.RichTextProperty{RichText: []notionapi.RichText{{PlainText: "Dear hiring manager"}}},
 		},
 	}

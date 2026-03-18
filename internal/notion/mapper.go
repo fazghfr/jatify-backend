@@ -41,6 +41,15 @@ func ExtractSelect(prop notionapi.Property) string {
 	return ""
 }
 
+// ExtractMultiSelectLast returns the name of the last option in a MultiSelectProperty,
+// or "" if the property is the wrong type or the list is empty.
+func ExtractMultiSelectLast(prop notionapi.Property) string {
+	if ms, ok := prop.(*notionapi.MultiSelectProperty); ok && len(ms.MultiSelect) > 0 {
+		return ms.MultiSelect[len(ms.MultiSelect)-1].Name
+	}
+	return ""
+}
+
 // MapPage extracts JobFields and AppFields from a Notion page.
 // Returns empty JobFields (Company=="") if required fields are missing.
 func MapPage(page notionapi.Page) (JobFields, AppFields) {
@@ -65,7 +74,7 @@ func MapPage(page notionapi.Page) (JobFields, AppFields) {
 		jf.Description = ExtractRichText(prop)
 	}
 	if prop, ok := page.Properties["Status"]; ok {
-		af.Status = ExtractSelect(prop)
+		af.Status = ExtractMultiSelectLast(prop)
 	}
 	if prop, ok := page.Properties["Cover Letter"]; ok {
 		af.CoverLetter = ExtractRichText(prop)

@@ -47,7 +47,7 @@ func (r *applicationRepository) FindByID(id int) (*entity.Application, error) {
 
 func (r *applicationRepository) FindByNotionPageID(pageID string) (*entity.Application, error) {
 	var app entity.Application
-	err := r.db.Where("notion_page_id = ?", pageID).First(&app).Error
+	err := r.db.Unscoped().Where("notion_page_id = ?", pageID).First(&app).Error
 	if err != nil {
 		return nil, err
 	}

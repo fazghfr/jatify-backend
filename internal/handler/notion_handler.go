@@ -124,6 +124,25 @@ func (h *NotionHandler) Sync(c *gin.Context) {
 	util.OK(c, syncResult)
 }
 
+// DebugPages GET /api/notion/debug/pages
+func (h *NotionHandler) DebugPages(c *gin.Context) {
+	userID := c.GetInt(middleware.UserIDKey)
+	pages, err := h.notionSvc.RawPages(userID)
+	if err != nil {
+		if errors.Is(err, service.ErrNotionNotConnected) {
+			util.BadRequest(c, "Notion integration not connected")
+			return
+		}
+		if errors.Is(err, service.ErrNotionDatabaseNotSet) {
+			util.BadRequest(c, "Notion database not configured")
+			return
+		}
+		util.InternalError(c, "failed to fetch raw pages")
+		return
+	}
+	util.OK(c, pages)
+}
+
 // Disconnect DELETE /api/notion/disconnect
 func (h *NotionHandler) Disconnect(c *gin.Context) {
 	userID := c.GetInt(middleware.UserIDKey)

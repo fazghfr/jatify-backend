@@ -10,6 +10,7 @@ type ApplicationRepository interface {
 	Create(app *entity.Application) error
 	FindAllByUserID(userID int) ([]entity.Application, error)
 	FindByID(id int) (*entity.Application, error)
+	FindByNotionPageID(pageID string) (*entity.Application, error)
 	Update(app *entity.Application) error
 	Delete(id int) error
 }
@@ -38,6 +39,15 @@ func (r *applicationRepository) FindByID(id int) (*entity.Application, error) {
 	var app entity.Application
 	err := r.db.Preload("Status").Preload("Job").Preload("Resume").Preload("StatusHistory").
 		First(&app, id).Error
+	if err != nil {
+		return nil, err
+	}
+	return &app, nil
+}
+
+func (r *applicationRepository) FindByNotionPageID(pageID string) (*entity.Application, error) {
+	var app entity.Application
+	err := r.db.Where("notion_page_id = ?", pageID).First(&app).Error
 	if err != nil {
 		return nil, err
 	}

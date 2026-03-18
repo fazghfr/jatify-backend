@@ -10,6 +10,10 @@ type Config struct {
 	DBName     string
 	ServerPort string
 	JWTSecret  string
+
+	NotionClientID     string
+	NotionClientSecret string
+	NotionRedirectURI  string
 }
 
 func Load() *Config {
@@ -21,6 +25,10 @@ func Load() *Config {
 		DBName:     getEnv("DB_NAME", ""),
 		ServerPort: getEnv("SERVER_PORT", "8080"),
 		JWTSecret:  getEnv("JWT_SECRET", ""),
+
+		NotionClientID:     getEnv("NOTION_CLIENT_ID", ""),
+		NotionClientSecret: getEnv("NOTION_CLIENT_SECRET", ""),
+		NotionRedirectURI:  getEnv("NOTION_REDIRECT_URI", ""),
 	}
 }
 

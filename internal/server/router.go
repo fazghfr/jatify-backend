@@ -14,6 +14,7 @@ func RegisterRoutes(
 	jobHandler *handler.JobHandler,
 	resumeHandler *handler.ResumeHandler,
 	statusHandler *handler.StatusHandler,
+	notionHandler *handler.NotionHandler,
 	jwtSecret string,
 ) {
 	api := r.Group("/api")
@@ -25,6 +26,9 @@ func RegisterRoutes(
 		auth.POST("/login", authHandler.Login)
 		auth.POST("/logout", authHandler.Logout)
 	}
+
+	// Public Notion OAuth callback
+	api.GET("/notion/callback", notionHandler.Callback)
 
 	// Protected routes
 	protected := api.Group("")
@@ -59,6 +63,16 @@ func RegisterRoutes(
 			resumes.GET("/:id", resumeHandler.GetByID)
 			resumes.PUT("/:id", resumeHandler.Update)
 			resumes.DELETE("/:id", resumeHandler.Delete)
+		}
+
+		notion := protected.Group("/notion")
+		{
+			notion.GET("/connect", notionHandler.Connect)
+			notion.GET("/status", notionHandler.Status)
+			notion.POST("/configure", notionHandler.Configure)
+			notion.GET("/databases", notionHandler.ListDatabases)
+			notion.POST("/sync", notionHandler.Sync)
+			notion.DELETE("/disconnect", notionHandler.Disconnect)
 		}
 	}
 }

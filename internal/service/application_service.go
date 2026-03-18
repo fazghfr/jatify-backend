@@ -81,7 +81,7 @@ func (s *applicationService) Update(userID, id int, req *dto.UpdateApplicationRe
 	prevStatusID := app.StatusID
 
 	if req.ResumeID != nil {
-		app.ResumeID = *req.ResumeID
+		app.ResumeID = req.ResumeID
 	}
 	if req.JobID != nil {
 		app.JobID = *req.JobID

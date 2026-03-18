@@ -14,5 +14,6 @@ func Migrate(db *gorm.DB) error {
 		&entity.Resume{},
 		&entity.Application{},
 		&entity.StatusHistory{},
+		&entity.NotionIntegration{},
 	)
 }

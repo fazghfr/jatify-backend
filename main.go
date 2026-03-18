@@ -40,12 +40,14 @@ func main() {
 	jobRepo := repository.NewJobRepository(db)
 	resumeRepo := repository.NewResumeRepository(db)
 	statusRepo := repository.NewStatusRepository(db)
+	notionIntegrationRepo := repository.NewNotionIntegrationRepository(db)
 
 	// Services
 	authSvc := service.NewAuthService(userRepo, cfg.JWTSecret)
 	appSvc := service.NewApplicationService(appRepo, historyRepo)
 	jobSvc := service.NewJobService(jobRepo)
 	resumeSvc := service.NewResumeService(resumeRepo)
+	notionSvc := service.NewNotionService(cfg, notionIntegrationRepo, appRepo, jobRepo, statusRepo, historyRepo)
 
 	// Handlers
 	authHandler := handler.NewAuthHandler(authSvc)
@@ -53,10 +55,11 @@ func main() {
 	jobHandler := handler.NewJobHandler(jobSvc)
 	resumeHandler := handler.NewResumeHandler(resumeSvc)
 	statusHandler := handler.NewStatusHandler(statusRepo)
+	notionHandler := handler.NewNotionHandler(notionSvc)
 
 	// Server
 	r := server.NewEngine()
-	server.RegisterRoutes(r, authHandler, appHandler, jobHandler, resumeHandler, statusHandler, cfg.JWTSecret)
+	server.RegisterRoutes(r, authHandler, appHandler, jobHandler, resumeHandler, statusHandler, notionHandler, cfg.JWTSecret)
 
 	log.Printf("server running on port %s", cfg.ServerPort)
 	if err := server.Run(r, cfg.ServerPort); err != nil {

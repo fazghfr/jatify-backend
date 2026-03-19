@@ -371,6 +371,9 @@ func (s *notionService) Sync(userID int) (*dto.NotionSyncResult, error) {
 				result.Errors = append(result.Errors, fmt.Sprintf("page %s: failed to create application: %v", af.NotionPageID, createErr))
 				continue
 			}
+			if af.ApplicationDate != nil {
+				_ = s.appRepo.UpdateTimestamps(app.ID, *af.ApplicationDate)
+			}
 			_ = s.historyRepo.Create(&entity.StatusHistory{
 				ApplicationID: app.ID,
 				StatusID:      app.StatusID,
@@ -408,6 +411,9 @@ func (s *notionService) Sync(userID int) (*dto.NotionSyncResult, error) {
 				if updateErr := s.appRepo.Update(existing); updateErr != nil {
 					result.Errors = append(result.Errors, fmt.Sprintf("page %s: failed to update application: %v", af.NotionPageID, updateErr))
 					continue
+				}
+				if af.ApplicationDate != nil {
+					_ = s.appRepo.UpdateTimestamps(existing.ID, *af.ApplicationDate)
 				}
 				result.Updated++
 			} else {

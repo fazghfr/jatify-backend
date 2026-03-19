@@ -1,6 +1,8 @@
 package repository
 
 import (
+	"time"
+
 	"job-tracker/internal/entity"
 
 	"gorm.io/gorm"
@@ -12,6 +14,7 @@ type ApplicationRepository interface {
 	FindByID(id int) (*entity.Application, error)
 	FindByNotionPageID(pageID string) (*entity.Application, error)
 	Update(app *entity.Application) error
+	UpdateTimestamps(id int, t time.Time) error
 	Delete(id int) error
 }
 
@@ -56,6 +59,11 @@ func (r *applicationRepository) FindByNotionPageID(pageID string) (*entity.Appli
 
 func (r *applicationRepository) Update(app *entity.Application) error {
 	return r.db.Save(app).Error
+}
+
+func (r *applicationRepository) UpdateTimestamps(id int, t time.Time) error {
+	return r.db.Model(&entity.Application{}).Where("id = ?", id).
+		UpdateColumns(map[string]interface{}{"created_at": t, "updated_at": t}).Error
 }
 
 func (r *applicationRepository) Delete(id int) error {

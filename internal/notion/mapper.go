@@ -1,6 +1,8 @@
 package notion
 
 import (
+	"time"
+
 	"github.com/jomei/notionapi"
 )
 
@@ -11,9 +13,10 @@ type JobFields struct {
 }
 
 type AppFields struct {
-	NotionPageID string
-	Status       string
-	CoverLetter  string
+	NotionPageID    string
+	Status          string
+	CoverLetter     string
+	ApplicationDate *time.Time
 }
 
 func ExtractTitle(prop notionapi.Property) string {
@@ -32,6 +35,14 @@ func ExtractRichText(prop notionapi.Property) string {
 		}
 	}
 	return ""
+}
+
+func ExtractDate(prop notionapi.Property) *time.Time {
+	if d, ok := prop.(*notionapi.DateProperty); ok && d.Date != nil && d.Date.Start != nil {
+		t := time.Time(*d.Date.Start)
+		return &t
+	}
+	return nil
 }
 
 func ExtractSelect(prop notionapi.Property) string {
@@ -78,6 +89,9 @@ func MapPage(page notionapi.Page) (JobFields, AppFields) {
 	}
 	if prop, ok := page.Properties["Cover Letter"]; ok {
 		af.CoverLetter = ExtractRichText(prop)
+	}
+	if prop, ok := page.Properties["Application Date"]; ok {
+		af.ApplicationDate = ExtractDate(prop)
 	}
 
 	return jf, af

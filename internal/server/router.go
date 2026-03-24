@@ -17,6 +17,8 @@ func RegisterRoutes(
 	notionHandler *handler.NotionHandler,
 	jwtSecret string,
 ) {
+	r.Static("/uploads", "./uploads")
+
 	api := r.Group("/api")
 
 	// Public auth routes

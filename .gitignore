@@ -6,6 +6,9 @@
 *.dylib
 job-tracker
 
+# Uploaded files
+uploads/
+
 # Test binary, built with `go test -c`
 *.test
 

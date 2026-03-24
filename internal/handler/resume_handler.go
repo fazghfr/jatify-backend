@@ -2,14 +2,16 @@ package handler
 
 import (
 	"errors"
+	"io"
+	"net/http"
 	"strconv"
 
-	"job-tracker/internal/dto"
 	"job-tracker/internal/middleware"
 	"job-tracker/internal/service"
 	"job-tracker/internal/util"
 
 	"github.com/gin-gonic/gin"
+	"job-tracker/internal/dto"
 )
 
 type ResumeHandler struct {
@@ -24,13 +26,28 @@ func NewResumeHandler(svc service.ResumeService) *ResumeHandler {
 func (h *ResumeHandler) Create(c *gin.Context) {
 	userID := c.GetInt(middleware.UserIDKey)
 
-	var req dto.CreateResumeRequest
-	if err := c.ShouldBindJSON(&req); err != nil {
-		util.BadRequest(c, err.Error())
+	file, header, err := c.Request.FormFile("file")
+	if err != nil {
+		util.BadRequest(c, "file is required")
+		return
+	}
+	defer file.Close()
+
+	if header.Size > 1*1024*1024 {
+		util.BadRequest(c, "file too large (max 1 MB)")
 		return
 	}
 
-	resume, err := h.svc.Create(userID, &req)
+	buf := make([]byte, 512)
+	n, _ := file.Read(buf)
+	mime := http.DetectContentType(buf[:n])
+	if mime != "application/pdf" {
+		util.BadRequest(c, "only PDF files are accepted")
+		return
+	}
+	file.Seek(0, io.SeekStart)
+
+	resume, err := h.svc.Create(userID, file, header.Filename)
 	if err != nil {
 		util.InternalError(c, err.Error())
 		return

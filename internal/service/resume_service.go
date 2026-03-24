@@ -1,6 +1,11 @@
 package service
 
 import (
+	"fmt"
+	"io"
+	"os"
+	"path/filepath"
+
 	"job-tracker/internal/dto"
 	"job-tracker/internal/entity"
 	"job-tracker/internal/repository"
@@ -9,7 +14,7 @@ import (
 )
 
 type ResumeService interface {
-	Create(userID int, req *dto.CreateResumeRequest) (*entity.Resume, error)
+	Create(userID int, file io.ReadSeeker, originalName string) (*entity.Resume, error)
 	GetAll(userID int) ([]entity.Resume, error)
 	GetByID(userID, id int) (*entity.Resume, error)
 	Update(userID, id int, req *dto.UpdateResumeRequest) (*entity.Resume, error)
@@ -24,13 +29,35 @@ func NewResumeService(repo repository.ResumeRepository) ResumeService {
 	return &resumeService{repo: repo}
 }
 
-func (s *resumeService) Create(userID int, req *dto.CreateResumeRequest) (*entity.Resume, error) {
+func (s *resumeService) Create(userID int, file io.ReadSeeker, originalName string) (*entity.Resume, error) {
+	id := uuid.New()
+	ext := filepath.Ext(originalName)
+	dir := fmt.Sprintf("uploads/%d", userID)
+
+	if err := os.MkdirAll(dir, 0755); err != nil {
+		return nil, err
+	}
+
+	savePath := fmt.Sprintf("%s/%s%s", dir, id.String(), ext)
+
+	dst, err := os.Create(savePath)
+	if err != nil {
+		return nil, err
+	}
+	defer dst.Close()
+
+	if _, err := io.Copy(dst, file); err != nil {
+		os.Remove(savePath)
+		return nil, err
+	}
+
 	resume := &entity.Resume{
-		Filepath: req.Filepath,
+		Filepath: savePath,
 		UserID:   userID,
-		UUID:     uuid.New(),
+		UUID:     id,
 	}
 	if err := s.repo.Create(resume); err != nil {
+		os.Remove(savePath)
 		return nil, err
 	}
 	return resume, nil

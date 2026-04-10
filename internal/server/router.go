@@ -15,6 +15,7 @@ func RegisterRoutes(
 	resumeHandler *handler.ResumeHandler,
 	statusHandler *handler.StatusHandler,
 	notionHandler *handler.NotionHandler,
+	rajHandler *handler.ResumeAnalyzerJobHandler,
 	jwtSecret string,
 ) {
 	r.Static("/uploads", "./uploads")
@@ -65,6 +66,7 @@ func RegisterRoutes(
 			resumes.GET("/:id", resumeHandler.GetByID)
 			resumes.PUT("/:id", resumeHandler.Update)
 			resumes.DELETE("/:id", resumeHandler.Delete)
+			resumes.POST("/:id/analyze", rajHandler.Analyze)
 		}
 
 		notion := protected.Group("/notion")

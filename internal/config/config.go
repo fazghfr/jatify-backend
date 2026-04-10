@@ -14,6 +14,9 @@ type Config struct {
 	NotionClientID     string
 	NotionClientSecret string
 	NotionRedirectURI  string
+
+	OpenRouterAPIKey string
+	OpenRouterModel  string
 }
 
 func Load() *Config {
@@ -29,6 +32,9 @@ func Load() *Config {
 		NotionClientID:     getEnv("NOTION_CLIENT_ID", ""),
 		NotionClientSecret: getEnv("NOTION_CLIENT_SECRET", ""),
 		NotionRedirectURI:  getEnv("NOTION_REDIRECT_URI", ""),
+
+		OpenRouterAPIKey: getEnv("OPENROUTER_API_KEY", ""),
+		OpenRouterModel:  getEnv("OPENROUTER_MODEL", "openai/gpt-4o-mini"),
 	}
 }
 

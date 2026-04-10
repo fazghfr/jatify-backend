@@ -6,6 +6,7 @@ import (
 	"job-tracker/internal/config"
 	"job-tracker/internal/database"
 	"job-tracker/internal/handler"
+	"job-tracker/internal/openrouter"
 	"job-tracker/internal/repository"
 	"job-tracker/internal/server"
 	"job-tracker/internal/service"
@@ -41,6 +42,7 @@ func main() {
 	resumeRepo := repository.NewResumeRepository(db)
 	statusRepo := repository.NewStatusRepository(db)
 	notionIntegrationRepo := repository.NewNotionIntegrationRepository(db)
+	rajRepo := repository.NewResumeAnalyzerJobRepository(db)
 
 	// Services
 	authSvc := service.NewAuthService(userRepo, cfg.JWTSecret)
@@ -48,6 +50,8 @@ func main() {
 	jobSvc := service.NewJobService(jobRepo)
 	resumeSvc := service.NewResumeService(resumeRepo)
 	notionSvc := service.NewNotionService(cfg, notionIntegrationRepo, appRepo, jobRepo, statusRepo, historyRepo)
+	orClient := openrouter.New(cfg.OpenRouterAPIKey, cfg.OpenRouterModel)
+	rajSvc := service.NewResumeAnalyzerJobService(rajRepo, resumeRepo, orClient)
 
 	// Handlers
 	authHandler := handler.NewAuthHandler(authSvc)
@@ -56,10 +60,11 @@ func main() {
 	resumeHandler := handler.NewResumeHandler(resumeSvc)
 	statusHandler := handler.NewStatusHandler(statusRepo)
 	notionHandler := handler.NewNotionHandler(notionSvc)
+	rajHandler := handler.NewResumeAnalyzerJobHandler(rajSvc)
 
 	// Server
 	r := server.NewEngine()
-	server.RegisterRoutes(r, authHandler, appHandler, jobHandler, resumeHandler, statusHandler, notionHandler, cfg.JWTSecret)
+	server.RegisterRoutes(r, authHandler, appHandler, jobHandler, resumeHandler, statusHandler, notionHandler, rajHandler, cfg.JWTSecret)
 
 	log.Printf("server running on port %s", cfg.ServerPort)
 	if err := server.Run(r, cfg.ServerPort); err != nil {

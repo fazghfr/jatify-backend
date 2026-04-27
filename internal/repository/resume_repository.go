@@ -10,6 +10,7 @@ type ResumeRepository interface {
 	Create(resume *entity.Resume) error
 	FindAllByUserID(userID int) ([]entity.Resume, error)
 	FindByID(id int) (*entity.Resume, error)
+	FindByUUID(uuid string) (*entity.Resume, error)
 	Update(resume *entity.Resume) error
 	Delete(id int) error
 }
@@ -20,6 +21,14 @@ type resumeRepository struct {
 
 func NewResumeRepository(db *gorm.DB) ResumeRepository {
 	return &resumeRepository{db: db}
+}
+
+func (r *resumeRepository) FindByUUID(uuid string) (*entity.Resume, error) {
+	var resume entity.Resume
+	if err := r.db.First(&resume, "uuid = ?", uuid).Error; err != nil {
+		return nil, err
+	}
+	return &resume, nil
 }
 
 func (r *resumeRepository) Create(resume *entity.Resume) error {

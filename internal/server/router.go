@@ -67,6 +67,7 @@ func RegisterRoutes(
 			resumes.PUT("/:id", resumeHandler.Update)
 			resumes.DELETE("/:id", resumeHandler.Delete)
 			resumes.POST("/:id/analyze", rajHandler.Analyze)
+			resumes.GET("/:id/analysis/:jobid", rajHandler.GetResult)
 		}
 
 		notion := protected.Group("/notion")

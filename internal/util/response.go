@@ -20,6 +20,10 @@ func Created(c *gin.Context, data interface{}) {
 	c.JSON(http.StatusCreated, APIResponse{Success: true, Data: data})
 }
 
+func Accepted(c *gin.Context, data interface{}) {
+	c.JSON(http.StatusAccepted, APIResponse{Success: true, Data: data})
+}
+
 func BadRequest(c *gin.Context, message string) {
 	c.JSON(http.StatusBadRequest, APIResponse{Success: false, Message: message})
 }

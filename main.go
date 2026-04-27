@@ -1,6 +1,7 @@
 package main
 
 import (
+	"context"
 	"log"
 
 	"job-tracker/internal/config"
@@ -10,6 +11,7 @@ import (
 	"job-tracker/internal/repository"
 	"job-tracker/internal/server"
 	"job-tracker/internal/service"
+	"job-tracker/internal/worker"
 
 	"github.com/joho/godotenv"
 )
@@ -51,7 +53,16 @@ func main() {
 	resumeSvc := service.NewResumeService(resumeRepo)
 	notionSvc := service.NewNotionService(cfg, notionIntegrationRepo, appRepo, jobRepo, statusRepo, historyRepo)
 	orClient := openrouter.New(cfg.OpenRouterAPIKey, cfg.OpenRouterModel)
-	rajSvc := service.NewResumeAnalyzerJobService(rajRepo, resumeRepo, orClient)
+
+	jobCh := make(chan int, 30)
+	rajSvc := service.NewResumeAnalyzerJobService(rajRepo, resumeRepo, jobCh)
+
+	workerPool := worker.NewPool(context.Background(), jobCh, worker.ProcessorDeps{
+		ResumeRepo: resumeRepo,
+		JobRepo:    rajRepo,
+		ORClient:   orClient,
+	})
+	workerPool.Start()
 
 	// Handlers
 	authHandler := handler.NewAuthHandler(authSvc)

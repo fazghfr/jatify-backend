@@ -19,9 +19,9 @@ func NewResumeAnalyzerJobHandler(svc service.ResumeAnalyzerJobService) *ResumeAn
 
 func (h *ResumeAnalyzerJobHandler) Analyze(c *gin.Context) {
 	userID := c.GetInt(middleware.UserIDKey)
-	resumeID := c.Param("id")
+	resumeUUID := c.Param("id")
 
-	job, err := h.svc.AnalyzeResume(userID, resumeID)
+	job, err := h.svc.Enqueue(c.Request.Context(), userID, resumeUUID)
 	if err != nil {
 		if errors.Is(err, service.ErrForbidden) {
 			util.Forbidden(c, err.Error())
@@ -31,5 +31,22 @@ func (h *ResumeAnalyzerJobHandler) Analyze(c *gin.Context) {
 		return
 	}
 
-	util.Created(c, job)
+	util.Accepted(c, job)
+}
+
+func (h *ResumeAnalyzerJobHandler) GetResult(c *gin.Context) {
+	userID := c.GetInt(middleware.UserIDKey)
+	jobUUID := c.Param("jobid")
+
+	job, err := h.svc.GetResult(c.Request.Context(), userID, jobUUID)
+	if err != nil {
+		if errors.Is(err, service.ErrForbidden) {
+			util.Forbidden(c, err.Error())
+			return
+		}
+		util.NotFound(c, err.Error())
+		return
+	}
+
+	util.OK(c, job)
 }

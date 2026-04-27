@@ -3,34 +3,32 @@ package service
 import (
 	"context"
 	"job-tracker/internal/entity"
-	"job-tracker/internal/openrouter"
 	"job-tracker/internal/repository"
 	"strings"
-	"time"
 
 	"github.com/google/uuid"
 	"github.com/ledongthuc/pdf"
 )
 
 type ResumeAnalyzerJobService interface {
-	AnalyzeResume(userID int, resumeUUID string) (entity.ResumeAnalysisJob, error)
+	Enqueue(ctx context.Context, userID int, resumeUUID string) (entity.ResumeAnalysisJob, error)
+	GetResult(ctx context.Context, userID int, jobUUID string) (entity.ResumeAnalysisJob, error)
 }
 
 type resumeAnalyzerJobService struct {
-	jobrepo    *repository.ResumeAnalyzerJobRepository
+	jobrepo    repository.ResumeAnalysisJobRepository
 	resumerepo repository.ResumeRepository
-	orClient   openrouter.ORClient
+	jobCh      chan int
 }
 
 func NewResumeAnalyzerJobService(
-	jobrepo *repository.ResumeAnalyzerJobRepository,
+	jobrepo repository.ResumeAnalysisJobRepository,
 	resumerepo repository.ResumeRepository,
-	orClient openrouter.ORClient,
+	jobCh chan int,
 ) ResumeAnalyzerJobService {
-	return &resumeAnalyzerJobService{jobrepo: jobrepo, resumerepo: resumerepo, orClient: orClient}
+	return &resumeAnalyzerJobService{jobrepo: jobrepo, resumerepo: resumerepo, jobCh: jobCh}
 }
 
-// Utils function on the service layer
 func ExtractTextFromPDF(filepath string) (string, error) {
 	file, reader, err := pdf.Open(filepath)
 	if err != nil {
@@ -53,16 +51,7 @@ func ExtractTextFromPDF(filepath string) (string, error) {
 	return buf.String(), nil
 }
 
-func (s *resumeAnalyzerJobService) AnalyzeResume(userID int, resumeUUID string) (entity.ResumeAnalysisJob, error) {
-	// 1 : find resume by resume ID verified by the userID
-	// 2 : create the job
-	// 3 : update the job status as processing
-	// 4 : pdf text extraction
-	// 5 : system prompt
-	// 6 : actual LLM call using openrouter client
-	// 7 : update job as completed
-	// 8 : return resume analysis job entity
-
+func (s *resumeAnalyzerJobService) Enqueue(_ context.Context, userID int, resumeUUID string) (entity.ResumeAnalysisJob, error) {
 	resume, err := s.resumerepo.FindByUUID(resumeUUID)
 	if err != nil {
 		return entity.ResumeAnalysisJob{}, err
@@ -71,37 +60,32 @@ func (s *resumeAnalyzerJobService) AnalyzeResume(userID int, resumeUUID string) 
 		return entity.ResumeAnalysisJob{}, ErrForbidden
 	}
 
-	// job creation
-	jobuuid := uuid.New()
-	resumeid := resume.ID
 	job := &entity.ResumeAnalysisJob{
-		UUID:     jobuuid,
-		ResumeID: resumeid,
+		UUID:     uuid.New(),
+		ResumeID: resume.ID,
 		UserID:   userID,
-		Status:   "processing",
+		Status:   "pending",
 	}
 	if err := s.jobrepo.Create(job); err != nil {
 		return entity.ResumeAnalysisJob{}, err
 	}
 
-	// text extraction
-	text, err := ExtractTextFromPDF(resume.Filepath)
+	// non-blocking: if channel is full, worker picks it up via DB poll
+	select {
+	case s.jobCh <- job.ID:
+	default:
+	}
+
+	return *job, nil
+}
+
+func (s *resumeAnalyzerJobService) GetResult(_ context.Context, userID int, jobUUID string) (entity.ResumeAnalysisJob, error) {
+	job, err := s.jobrepo.FindByUUID(jobUUID)
 	if err != nil {
 		return entity.ResumeAnalysisJob{}, err
 	}
-
-	// LLM call (60-second timeout)
-	ctx, cancel := context.WithTimeout(context.Background(), 60*time.Second)
-	defer cancel()
-	resultJSON, err := s.orClient.AnalyzeResume(ctx, text)
-	if err != nil {
-		return entity.ResumeAnalysisJob{}, err
+	if job.UserID != userID {
+		return entity.ResumeAnalysisJob{}, ErrForbidden
 	}
-	job.Status = "done"
-	job.ResultJSON = &resultJSON
-	if err := s.jobrepo.Update(job); err != nil {
-		return entity.ResumeAnalysisJob{}, err
-	}
-
 	return *job, nil
 }

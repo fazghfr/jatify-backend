@@ -4,6 +4,7 @@ import (
 	"job-tracker/internal/entity"
 	"time"
 
+	"github.com/google/uuid"
 	"gorm.io/gorm"
 )
 
@@ -13,6 +14,8 @@ type ResumeAnalysisJobRepository interface {
 	ClaimNext() (*entity.ResumeAnalysisJob, error)
 	MarkDone(job *entity.ResumeAnalysisJob) error
 	MarkFailed(job *entity.ResumeAnalysisJob, errmsg string) error
+	UpdateStatus(job *entity.ResumeAnalysisJob, newstatus string) error
+	UpdateStatusByUUIDs(uuids []string, status string) error
 	ResetStale() error
 }
 
@@ -103,6 +106,41 @@ func applyRetryLogic(job *entity.ResumeAnalysisJob, errmsg string, now time.Time
 }
 
 func (r *ResumeAnalyzerJobRepository) MarkFailed(job *entity.ResumeAnalysisJob, errmsg string) error {
-	applyRetryLogic(job, errmsg, time.Now())
-	return r.db.Save(&job).Error
+	return r.db.Transaction(
+		func(tx *gorm.DB) error {
+			applyRetryLogic(job, errmsg, time.Now())
+			if err := tx.Save(&job).Error; err != nil {
+				return err
+			}
+
+			// push to dlq
+			now := time.Now()
+			if job.Status == "failed" {
+				newDlq := &entity.ResumeAnalysisDLQ{
+					UUID:     uuid.New(),
+					JobUUID:  job.UUID,
+					ErrorMsg: *job.ErrorMsg,
+					FailedAt: &now,
+					FailureType: nil,
+				}
+				if err := tx.Save(newDlq).Error; err != nil {
+					return err
+				}
+			}
+			return nil
+		},
+	)
+}
+
+// THIS FUNCTION IS INTENDED FOR REQUEUEING LOGIC ONLY.
+// refer to dlq_service@requeue function
+func (r *ResumeAnalyzerJobRepository) UpdateStatus(job *entity.ResumeAnalysisJob, newstatus string) error {
+	job.Status = newstatus
+	return r.db.Save(job).Error
+}
+
+func (r *ResumeAnalyzerJobRepository) UpdateStatusByUUIDs(uuids []string, status string) error {
+	return r.db.Model(&entity.ResumeAnalysisJob{}).
+		Where("uuid IN ?", uuids).
+		Update("status", status).Error
 }

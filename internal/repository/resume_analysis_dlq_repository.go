@@ -12,7 +12,7 @@ type ResumeAnalysisDLQRepository interface {
 	Insert(dlq *entity.ResumeAnalysisDLQ) error
 	FindAllByUserID(userID int) ([]entity.ResumeAnalysisDLQ, error)
 	FindByUUID(uuid string) (*entity.ResumeAnalysisDLQ, error)
-	Delete(uuid string) error
+	Delete(userID int, uuid string) error
 	Requeue(Rtype string, userid int, dlqUUID string) error
 }
 
@@ -43,10 +43,18 @@ func (r *ResumeAnalysisDLQRepo) FindByUUID(uuid string) (*entity.ResumeAnalysisD
 	return &dlq, result.Error
 }
 
-func (r *ResumeAnalysisDLQRepo) Delete(uuid string) error {
+func (r *ResumeAnalysisDLQRepo) Delete(userID int, uuid string) error {
 	now := time.Now()
-	result := r.db.Where("uuid = ?", uuid).Update("deleted_at", &now)
-	return result.Error
+	result := r.db.Model(&entity.ResumeAnalysisDLQ{}).
+		Where("uuid = ? AND deleted_at IS NULL AND job_uuid IN (SELECT uuid FROM resume_analysis_jobs WHERE user_id = ?)", uuid, userID).
+		Update("deleted_at", &now)
+	if result.Error != nil {
+		return result.Error
+	}
+	if result.RowsAffected == 0 {
+		return gorm.ErrRecordNotFound
+	}
+	return nil
 }
 
 func (r *ResumeAnalysisDLQRepo) Requeue(Rtype string, userid int, dlqUUID string) error {

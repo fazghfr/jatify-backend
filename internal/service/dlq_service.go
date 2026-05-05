@@ -25,3 +25,7 @@ func (s *DLQService) Requeue(Rtype string, userid int, dlqUUID string) (error) {
 
 	return s.DLQRepo.Requeue(Rtype, userid, dlqUUID)
 }
+
+func (s *DLQService) Delete(userID int, dlqUUID string) error {
+	return s.DLQRepo.Delete(userID, dlqUUID)
+}

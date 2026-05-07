@@ -15,6 +15,7 @@ var ErrForbidden = errors.New("access denied")
 type ApplicationService interface {
 	Create(userID int, req *dto.CreateApplicationRequest) (*entity.Application, error)
 	GetAll(userID int) ([]entity.Application, error)
+	GetPage(userID, page, pageSize int) (*dto.PaginatedApplicationsResponse, error)
 	GetByID(userID, id int) (*entity.Application, error)
 	Update(userID, id int, req *dto.UpdateApplicationRequest) (*entity.Application, error)
 	Delete(userID, id int) error
@@ -56,6 +57,33 @@ func (s *applicationService) Create(userID int, req *dto.CreateApplicationReques
 
 func (s *applicationService) GetAll(userID int) ([]entity.Application, error) {
 	return s.appRepo.FindAllByUserID(userID)
+}
+
+func (s *applicationService) GetPage(userID, page, pageSize int) (*dto.PaginatedApplicationsResponse, error) {
+	offset := (page - 1) * pageSize
+	apps, total, err := s.appRepo.FindPageByUserID(userID, offset, pageSize)
+	if err != nil {
+		return nil, err
+	}
+
+	totalPages := 0
+	if total > 0 {
+		totalPages = int((total + int64(pageSize) - 1) / int64(pageSize))
+	}
+
+	if apps == nil {
+		apps = []entity.Application{}
+	}
+
+	return &dto.PaginatedApplicationsResponse{
+		Data: apps,
+		Pagination: dto.Pagination{
+			Page:       page,
+			PageSize:   pageSize,
+			Total:      total,
+			TotalPages: totalPages,
+		},
+	}, nil
 }
 
 func (s *applicationService) GetByID(userID, id int) (*entity.Application, error) {

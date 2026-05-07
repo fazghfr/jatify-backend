@@ -1,5 +1,19 @@
 package dto
 
+import "job-tracker/internal/entity"
+
+type Pagination struct {
+	Page       int   `json:"page"`
+	PageSize   int   `json:"page_size"`
+	Total      int64 `json:"total"`
+	TotalPages int   `json:"total_pages"`
+}
+
+type PaginatedApplicationsResponse struct {
+	Data       []entity.Application `json:"data"`
+	Pagination Pagination           `json:"pagination"`
+}
+
 // UserID is intentionally omitted — it comes from the JWT context, not the request body.
 type CreateApplicationRequest struct {
 	ResumeID *int   `json:"resume_id"`

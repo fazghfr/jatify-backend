@@ -11,6 +11,7 @@ import (
 type ApplicationRepository interface {
 	Create(app *entity.Application) error
 	FindAllByUserID(userID int) ([]entity.Application, error)
+	FindPageByUserID(userID, offset, limit int) ([]entity.Application, int64, error)
 	FindByID(id int) (*entity.Application, error)
 	FindByNotionPageID(pageID string) (*entity.Application, error)
 	Update(app *entity.Application) error
@@ -36,6 +37,25 @@ func (r *applicationRepository) FindAllByUserID(userID int) ([]entity.Applicatio
 		Preload("Status").Preload("Job").
 		Find(&apps).Error
 	return apps, err
+}
+
+func (r *applicationRepository) FindPageByUserID(userID, offset, limit int) ([]entity.Application, int64, error) {
+	var apps []entity.Application
+	var total int64
+
+	if err := r.db.Model(&entity.Application{}).Where("user_id = ?", userID).Count(&total).Error; err != nil {
+		return nil, 0, err
+	}
+
+	err := r.db.Where("user_id = ?", userID).
+		Order("created_at DESC").
+		Offset(offset).Limit(limit).
+		Preload("Status").Preload("Job").
+		Find(&apps).Error
+	if err != nil {
+		return nil, 0, err
+	}
+	return apps, total, nil
 }
 
 func (r *applicationRepository) FindByID(id int) (*entity.Application, error) {

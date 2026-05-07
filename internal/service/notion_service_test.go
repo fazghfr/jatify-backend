@@ -55,7 +55,10 @@ func (m *mockAppRepo) Create(app *entity.Application) error {
 	return m.createErr
 }
 func (m *mockAppRepo) FindAllByUserID(_ int) ([]entity.Application, error) { return nil, nil }
-func (m *mockAppRepo) FindByID(_ int) (*entity.Application, error)         { return nil, nil }
+func (m *mockAppRepo) FindPageByUserID(_, _, _ int) ([]entity.Application, int64, error) {
+	return nil, 0, nil
+}
+func (m *mockAppRepo) FindByID(_ int) (*entity.Application, error) { return nil, nil }
 func (m *mockAppRepo) FindByNotionPageID(_ string) (*entity.Application, error) {
 	return m.app, m.findErr
 }

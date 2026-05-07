@@ -26,7 +26,6 @@ AI Resume analyzer.
 The Job Queue sytem is designed with concurrency, utilizing the go routine feature from Go. Right now, the concurrent workers are hardcoded into three workers only.
 In a nutshell, this three workers will "race" to find the next "Job" available. The next job available are defined as follows
 
-- The latest channel input if any 
 - The latest pending job in the database
 ## Enqueue
 

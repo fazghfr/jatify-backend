@@ -22,7 +22,7 @@ Implemented using clean architecture principles, emphasizing on separation of co
 ## Job Queue Design
 Note that the term "Job" here is not the actual Job as in the main Job Application Feature. In this section, "Job" term is defined as an object that needed to be processed for the 
 AI Resume analyzer. 
-# Enqueue & Requeue Flow
+# Simplified Enqueue & Requeue Flow
 The Job Queue sytem is designed with concurrency, utilizing the go routine feature from Go. Right now, the concurrent workers are hardcoded into three workers only.
 In a nutshell, this three workers will "race" to find the next "Job" available. The next job available are defined as follows
 

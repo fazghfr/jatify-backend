@@ -13,6 +13,7 @@ import (
 type ResumeAnalyzerJobService interface {
 	Enqueue(ctx context.Context, userID int, resumeUUID string) (entity.ResumeAnalysisJob, error)
 	GetResult(ctx context.Context, userID int, jobUUID string) (entity.ResumeAnalysisJob, error)
+	ListByResumeID(ctx context.Context, userID int, resumeUUID string) ([]entity.ResumeAnalysisJob, error)
 }
 
 type resumeAnalyzerJobService struct {
@@ -88,4 +89,15 @@ func (s *resumeAnalyzerJobService) GetResult(_ context.Context, userID int, jobU
 		return entity.ResumeAnalysisJob{}, ErrForbidden
 	}
 	return *job, nil
+}
+
+func (s *resumeAnalyzerJobService) ListByResumeID(_ context.Context, userID int, resumeUUID string) ([]entity.ResumeAnalysisJob, error) {
+	resume, err := s.resumerepo.FindByUUID(resumeUUID)
+	if err != nil {
+		return nil, err
+	}
+	if resume.UserID != userID {
+		return nil, ErrForbidden
+	}
+	return s.jobrepo.FindAllByResumeIDAndUserID(resume.ID, userID)
 }

@@ -11,6 +11,7 @@ import (
 type ResumeAnalysisJobRepository interface {
 	Create(job *entity.ResumeAnalysisJob) error
 	FindByUUID(uuid string) (*entity.ResumeAnalysisJob, error)
+	FindAllByResumeIDAndUserID(resumeID int, userID int) ([]entity.ResumeAnalysisJob, error)
 	ClaimNext() (*entity.ResumeAnalysisJob, error)
 	MarkDone(job *entity.ResumeAnalysisJob) error
 	MarkFailed(job *entity.ResumeAnalysisJob, errmsg string) error
@@ -42,6 +43,14 @@ func (r *ResumeAnalyzerJobRepository) FindByUUID(uuid string) (*entity.ResumeAna
 		return nil, err
 	}
 	return job, nil
+}
+
+func (r *ResumeAnalyzerJobRepository) FindAllByResumeIDAndUserID(resumeID int, userID int) ([]entity.ResumeAnalysisJob, error) {
+	var jobs []entity.ResumeAnalysisJob
+	err := r.db.Where("resume_id = ? AND user_id = ?", resumeID, userID).
+		Order("created_at DESC").
+		Find(&jobs).Error
+	return jobs, err
 }
 
 func (r *ResumeAnalyzerJobRepository) ClaimNext() (*entity.ResumeAnalysisJob, error) {

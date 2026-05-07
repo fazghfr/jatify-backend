@@ -50,3 +50,20 @@ func (h *ResumeAnalyzerJobHandler) GetResult(c *gin.Context) {
 
 	util.OK(c, job)
 }
+
+func (h *ResumeAnalyzerJobHandler) ListAnalyses(c *gin.Context) {
+	userID := c.GetInt(middleware.UserIDKey)
+	resumeUUID := c.Param("id")
+
+	jobs, err := h.svc.ListByResumeID(c.Request.Context(), userID, resumeUUID)
+	if err != nil {
+		if errors.Is(err, service.ErrForbidden) {
+			util.Forbidden(c, err.Error())
+			return
+		}
+		util.NotFound(c, err.Error())
+		return
+	}
+
+	util.OK(c, jobs)
+}

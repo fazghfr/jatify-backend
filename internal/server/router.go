@@ -69,6 +69,7 @@ func RegisterRoutes(
 			resumes.DELETE("/:id", resumeHandler.Delete)
 			resumes.POST("/:id/analyze", rajHandler.Analyze)
 			resumes.GET("/:id/analysis/:jobid", rajHandler.GetResult)
+			resumes.GET("/:id/analyses", rajHandler.ListAnalyses)
 		}
 
 		dlq := protected.Group("/dlq")

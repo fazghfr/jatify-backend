@@ -4,6 +4,7 @@ import (
 	"job-tracker/internal/entity"
 	"time"
 
+	"github.com/google/uuid"
 	"gorm.io/gorm"
 )
 
@@ -13,6 +14,9 @@ type ResumeAnalysisJobRepository interface {
 	ClaimNext() (*entity.ResumeAnalysisJob, error)
 	MarkDone(job *entity.ResumeAnalysisJob) error
 	MarkFailed(job *entity.ResumeAnalysisJob, errmsg string) error
+	UpdateStatus(job *entity.ResumeAnalysisJob, newstatus string) error
+	UpdateStatusByUUIDs(uuids []string, status string) error
+	ResetStale() error
 }
 
 type ResumeAnalyzerJobRepository struct {
@@ -48,6 +52,7 @@ func (r *ResumeAnalyzerJobRepository) ClaimNext() (*entity.ResumeAnalysisJob, er
 			res := ctx.Raw(
 				`SELECT * FROM resume_analysis_jobs
 				WHERE status = 'pending'
+				AND  (next_retry_at IS NULL OR next_retry_at <= NOW())
 				ORDER BY created_at
 				LIMIT 1
 				FOR UPDATE SKIP LOCKED`,
@@ -68,15 +73,74 @@ func (r *ResumeAnalyzerJobRepository) ClaimNext() (*entity.ResumeAnalysisJob, er
 
 func (r *ResumeAnalyzerJobRepository) MarkDone(job *entity.ResumeAnalysisJob) error {
 	job.Status = "done"
-	job.TimeFinished = time.Now()
+	now := time.Now()
+	job.TimeFinished = &now
 	return r.db.Save(job).Error
 }
 
+func (r *ResumeAnalyzerJobRepository) ResetStale() error {
+	err := r.db.Model(&entity.ResumeAnalysisJob{}).
+    Where("status = ?", "processing").
+    Updates(map[string]interface{}{
+                "status":        "pending",
+                "next_retry_at": nil,
+            }).Error
+	return err
+}
+
+// applyRetryLogic mutates job with the next retry state or marks it permanently failed.
+// extracted so it can be unit tested
+func applyRetryLogic(job *entity.ResumeAnalysisJob, errmsg string, now time.Time) {
+	delay := time.Second * 30 * (1 << job.RetryCount)
+	if job.RetryCount+1 <= job.MaxRetries {
+		job.RetryCount++
+		job.Status = "pending"
+		retryAt := now.Add(delay)
+		job.NextRetryAt = &retryAt
+	} else {
+		job.Status = "failed"
+		job.ErrorMsg = &errmsg
+		job.NextRetryAt = nil
+		job.TimeFinished = &now
+	}
+}
+
 func (r *ResumeAnalyzerJobRepository) MarkFailed(job *entity.ResumeAnalysisJob, errmsg string) error {
-	// skipping the retry logic for mvp day 1
-	// TODO: retry logic
-	job.Status = "failed"
-	job.ErrorMsg = errmsg
-	job.TimeFinished = time.Now()
-	return r.db.Save(&job).Error
+	return r.db.Transaction(
+		func(tx *gorm.DB) error {
+			applyRetryLogic(job, errmsg, time.Now())
+			if err := tx.Save(&job).Error; err != nil {
+				return err
+			}
+
+			// push to dlq
+			now := time.Now()
+			if job.Status == "failed" {
+				newDlq := &entity.ResumeAnalysisDLQ{
+					UUID:     uuid.New(),
+					JobUUID:  job.UUID,
+					ErrorMsg: *job.ErrorMsg,
+					FailedAt: &now,
+					FailureType: nil,
+				}
+				if err := tx.Save(newDlq).Error; err != nil {
+					return err
+				}
+			}
+			return nil
+		},
+	)
+}
+
+// THIS FUNCTION IS INTENDED FOR REQUEUEING LOGIC ONLY.
+// refer to dlq_service@requeue function
+func (r *ResumeAnalyzerJobRepository) UpdateStatus(job *entity.ResumeAnalysisJob, newstatus string) error {
+	job.Status = newstatus
+	return r.db.Save(job).Error
+}
+
+func (r *ResumeAnalyzerJobRepository) UpdateStatusByUUIDs(uuids []string, status string) error {
+	return r.db.Model(&entity.ResumeAnalysisJob{}).
+		Where("uuid IN ?", uuids).
+		Update("status", status).Error
 }

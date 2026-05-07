@@ -16,6 +16,7 @@ func RegisterRoutes(
 	statusHandler *handler.StatusHandler,
 	notionHandler *handler.NotionHandler,
 	rajHandler *handler.ResumeAnalyzerJobHandler,
+	dlqHandler *handler.DLQHandler,
 	jwtSecret string,
 ) {
 	r.Static("/uploads", "./uploads")
@@ -68,6 +69,14 @@ func RegisterRoutes(
 			resumes.DELETE("/:id", resumeHandler.Delete)
 			resumes.POST("/:id/analyze", rajHandler.Analyze)
 			resumes.GET("/:id/analysis/:jobid", rajHandler.GetResult)
+		}
+
+		dlq := protected.Group("/dlq")
+		{
+			dlq.GET("", dlqHandler.List)
+			dlq.POST("/requeue", dlqHandler.RequeueBulk)
+			dlq.POST("/:uuid/requeue", dlqHandler.RequeueSingle)
+			dlq.DELETE("/:uuid", dlqHandler.Delete)
 		}
 
 		notion := protected.Group("/notion")

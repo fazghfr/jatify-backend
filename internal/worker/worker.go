@@ -2,6 +2,7 @@ package worker
 
 import (
 	"context"
+	"fmt"
 	"sync"
 	"time"
 )
@@ -25,8 +26,10 @@ func NewPool(ctx context.Context, jobCh chan int, deps ProcessorDeps) *WorkerPoo
 }
 
 func (p *WorkerPool) Start () {
-	// todo: resetstale for day 2
-
+	err := p.deps.JobRepo.ResetStale()
+	if err != nil {
+		fmt.Println("warn: failed to reset stale jobs: %s", err.Error())
+	}
 	// spawning goroutines
 	for i := 0; i < p.concurrency; i++ {
 		p.wg.Add(1)

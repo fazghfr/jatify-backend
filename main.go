@@ -45,6 +45,7 @@ func main() {
 	statusRepo := repository.NewStatusRepository(db)
 	notionIntegrationRepo := repository.NewNotionIntegrationRepository(db)
 	rajRepo := repository.NewResumeAnalyzerJobRepository(db)
+	dlqRepo := repository.NewResumeAnalysisDLQRepository(db)
 
 	// Services
 	authSvc := service.NewAuthService(userRepo, cfg.JWTSecret)
@@ -56,6 +57,7 @@ func main() {
 
 	jobCh := make(chan int, 30)
 	rajSvc := service.NewResumeAnalyzerJobService(rajRepo, resumeRepo, jobCh)
+	dlqSvc := service.NewDLQService(dlqRepo)
 
 	workerPool := worker.NewPool(context.Background(), jobCh, worker.ProcessorDeps{
 		ResumeRepo: resumeRepo,
@@ -72,10 +74,11 @@ func main() {
 	statusHandler := handler.NewStatusHandler(statusRepo)
 	notionHandler := handler.NewNotionHandler(notionSvc)
 	rajHandler := handler.NewResumeAnalyzerJobHandler(rajSvc)
+	dlqHandler := handler.NewDLQHandler(dlqSvc)
 
 	// Server
 	r := server.NewEngine()
-	server.RegisterRoutes(r, authHandler, appHandler, jobHandler, resumeHandler, statusHandler, notionHandler, rajHandler, cfg.JWTSecret)
+	server.RegisterRoutes(r, authHandler, appHandler, jobHandler, resumeHandler, statusHandler, notionHandler, rajHandler, dlqHandler, cfg.JWTSecret)
 
 	log.Printf("server running on port %s", cfg.ServerPort)
 	if err := server.Run(r, cfg.ServerPort); err != nil {

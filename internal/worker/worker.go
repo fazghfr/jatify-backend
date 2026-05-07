@@ -2,6 +2,7 @@ package worker
 
 import (
 	"context"
+	"encoding/json"
 	"fmt"
 	"sync"
 	"time"
@@ -81,7 +82,31 @@ func (p *WorkerPool) processNext() bool {
         return true
     }
 
-    job.ResultJSON = result
+
+    // cleaning result here
+    type Res struct {
+		Summary               string   `json:"summary"`
+		Skills                []string `json:"skills"`
+		ExperienceYears       int      `json:"experience_years"`
+		Strengths             []string `json:"strengths"`
+		Weaknesses            []string `json:"weaknesses"`
+		ImprovementSuggestions []string `json:"improvement_suggestions"`
+		OverallScore          int      `json:"overall_score"`
+    }
+
+    var res Res
+    if err := json.Unmarshal([]byte(result), &res); err != nil {
+    	p.deps.JobRepo.MarkFailed(job, err.Error())
+    	return false
+    }
+
+    cleaned, err := json.Marshal(res)
+    if err != nil {
+        p.deps.JobRepo.MarkFailed(job, err.Error())
+        return true
+    }
+
+    job.ResultJSON = string(cleaned)
     p.deps.JobRepo.MarkDone(job)
     return true
 }

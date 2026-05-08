@@ -16,6 +16,7 @@ import (
 type ResumeService interface {
 	Create(userID int, file io.ReadSeeker, originalName string) (*entity.Resume, error)
 	GetAll(userID int) ([]entity.Resume, error)
+	GetPage(userID int, page, pageSize int) (*dto.PaginatedResumeResponse, error)
 	GetByID(userID, id int) (*entity.Resume, error)
 	Update(userID, id int, req *dto.UpdateResumeRequest) (*entity.Resume, error)
 	Delete(userID, id int) error
@@ -65,6 +66,27 @@ func (s *resumeService) Create(userID int, file io.ReadSeeker, originalName stri
 
 func (s *resumeService) GetAll(userID int) ([]entity.Resume, error) {
 	return s.repo.FindAllByUserID(userID)
+}
+
+func (s *resumeService) GetPage(userID, page, pageSize int) (*dto.PaginatedResumeResponse, error) {
+	offset := (page - 1) * pageSize
+	resumes, total, err := s.repo.FindPageByUserID(userID, offset, pageSize)
+	if err != nil {
+		return nil, err
+	}
+	totalPages := 0
+	if total > 0 {
+		totalPages = int((total + int64(pageSize) - 1) / int64(pageSize))
+	}
+	return &dto.PaginatedResumeResponse{
+		Data: resumes,
+		Pagination: dto.Pagination{
+			Page:       page,
+			PageSize:   pageSize,
+			Total:      total,
+			TotalPages: totalPages,
+		},
+	}, nil
 }
 
 func (s *resumeService) GetByID(userID, id int) (*entity.Resume, error) {

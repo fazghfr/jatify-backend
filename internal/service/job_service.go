@@ -11,6 +11,7 @@ import (
 type JobService interface {
 	Create(userID int, req *dto.CreateJobRequest) (*entity.Job, error)
 	GetAll(userID int) ([]entity.Job, error)
+	GetPage(userID, page, pageSize int) (*dto.PaginatedJobsResponse, error)
 	GetByID(userID, id int) (*entity.Job, error)
 	Update(userID, id int, req *dto.UpdateJobRequest) (*entity.Job, error)
 	Delete(userID, id int) error
@@ -40,6 +41,27 @@ func (s *jobService) Create(userID int, req *dto.CreateJobRequest) (*entity.Job,
 
 func (s *jobService) GetAll(userID int) ([]entity.Job, error) {
 	return s.repo.FindAllByUserID(userID)
+}
+
+func (s *jobService) GetPage(userID, page, pageSize int) (*dto.PaginatedJobsResponse, error) {
+	offset := (page - 1) * pageSize
+	jobs, total, err := s.repo.FindPageByUserID(userID, offset, pageSize)
+	if err != nil {
+		return nil, err
+	}
+	totalPages := 0
+	if total > 0 {
+		totalPages = int((total + int64(pageSize) - 1) / int64(pageSize))
+	}
+	return &dto.PaginatedJobsResponse{
+		Data: jobs,
+		Pagination: dto.Pagination{
+			Page:       page,
+			PageSize:   pageSize,
+			Total:      total,
+			TotalPages: totalPages,
+		},
+	}, nil
 }
 
 func (s *jobService) GetByID(userID, id int) (*entity.Job, error) {

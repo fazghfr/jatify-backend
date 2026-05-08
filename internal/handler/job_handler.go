@@ -43,13 +43,25 @@ func (h *JobHandler) Create(c *gin.Context) {
 func (h *JobHandler) GetAll(c *gin.Context) {
 	userID := c.GetInt(middleware.UserIDKey)
 
-	jobs, err := h.svc.GetAll(userID)
+	page, _ := strconv.Atoi(c.Query("page"))
+	if page < 1 {
+		page = 1
+	}
+	pageSize, _ := strconv.Atoi(c.Query("page_size"))
+	if pageSize < 1 {
+		pageSize = 20
+	}
+	if pageSize > 100 {
+		pageSize = 100
+	}
+
+	resp, err := h.svc.GetPage(userID, page, pageSize)
 	if err != nil {
 		util.InternalError(c, err.Error())
 		return
 	}
 
-	util.OK(c, jobs)
+	util.OK(c, resp)
 }
 
 // GET /api/jobs/:id

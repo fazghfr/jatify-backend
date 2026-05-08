@@ -9,6 +9,7 @@ import (
 type JobRepository interface {
 	Create(job *entity.Job) error
 	FindAllByUserID(userID int) ([]entity.Job, error)
+	FindPageByUserID(userID, offset, limit int) ([]entity.Job, int64, error)
 	FindByID(id int) (*entity.Job, error)
 	FindByCompanyPositionUserID(userID int, company, position string) (*entity.Job, error)
 	Update(job *entity.Job) error
@@ -31,6 +32,19 @@ func (r *jobRepository) FindAllByUserID(userID int) ([]entity.Job, error) {
 	var jobs []entity.Job
 	err := r.db.Where("user_id = ?", userID).Find(&jobs).Error
 	return jobs, err
+}
+
+func (r *jobRepository) FindPageByUserID(userID, offset, limit int) ([]entity.Job, int64, error) {
+	var total int64
+	if err := r.db.Model(&entity.Job{}).Where("user_id = ?", userID).Count(&total).Error; err != nil {
+		return nil, 0, err
+	}
+	var jobs []entity.Job
+	err := r.db.Where("user_id = ?", userID).
+		Order("id DESC").
+		Offset(offset).Limit(limit).
+		Find(&jobs).Error
+	return jobs, total, err
 }
 
 func (r *jobRepository) FindByID(id int) (*entity.Job, error) {

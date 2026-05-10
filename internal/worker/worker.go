@@ -4,6 +4,7 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
+	"strings"
 	"sync"
 	"time"
 )
@@ -82,6 +83,16 @@ func (p *WorkerPool) processNext() bool {
         return true
     }
 
+
+    // strip markdown code fences that LLMs sometimes wrap JSON in
+    result = strings.TrimSpace(result)
+    if strings.HasPrefix(result, "```") {
+        if i := strings.Index(result, "\n"); i != -1 {
+            result = result[i+1:]
+        }
+        result = strings.TrimSuffix(strings.TrimSpace(result), "```")
+        result = strings.TrimSpace(result)
+    }
 
     // cleaning result here
     type Res struct {

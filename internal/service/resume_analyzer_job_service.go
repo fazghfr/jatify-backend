@@ -4,6 +4,7 @@ import (
 	"context"
 	"job-tracker/internal/entity"
 	"job-tracker/internal/repository"
+	"os/exec"
 	"strings"
 
 	"github.com/google/uuid"
@@ -30,8 +31,16 @@ func NewResumeAnalyzerJobService(
 	return &resumeAnalyzerJobService{jobrepo: jobrepo, resumerepo: resumerepo, jobCh: jobCh}
 }
 
-func ExtractTextFromPDF(filepath string) (string, error) {
-	file, reader, err := pdf.Open(filepath)
+func ExtractTextFromPDF(path string) (string, error) {
+	out, err := exec.Command("pdftotext", "-layout", path, "-").Output()
+	if err == nil {
+		return string(out), nil
+	}
+	return extractWithLedongthuc(path)
+}
+
+func extractWithLedongthuc(path string) (string, error) {
+	file, reader, err := pdf.Open(path)
 	if err != nil {
 		return "", err
 	}

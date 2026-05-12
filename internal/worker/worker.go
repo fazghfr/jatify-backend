@@ -30,7 +30,7 @@ func NewPool(ctx context.Context, jobCh chan int, deps ProcessorDeps) *WorkerPoo
 func (p *WorkerPool) Start () {
 	err := p.deps.JobRepo.ResetStale()
 	if err != nil {
-		fmt.Println("warn: failed to reset stale jobs: %s", err.Error())
+		fmt.Printf("warn: failed to reset stale jobs: %s\n", err.Error())
 	}
 	// spawning goroutines
 	for i := 0; i < p.concurrency; i++ {

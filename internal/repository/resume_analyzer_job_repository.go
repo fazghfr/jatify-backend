@@ -101,7 +101,7 @@ func (r *ResumeAnalyzerJobRepository) ResetStale() error {
 // extracted so it can be unit tested
 func applyRetryLogic(job *entity.ResumeAnalysisJob, errmsg string, now time.Time) {
 	delay := time.Second * 30 * (1 << job.RetryCount)
-	if job.RetryCount+1 <= job.MaxRetries {
+	if job.RetryCount+1 < job.MaxRetries {
 		job.RetryCount++
 		job.Status = "pending"
 		retryAt := now.Add(delay)

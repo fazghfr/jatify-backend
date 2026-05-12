@@ -3,6 +3,7 @@ package main
 import (
 	"context"
 	"log"
+	"os"
 
 	"job-tracker/internal/config"
 	"job-tracker/internal/database"
@@ -17,9 +18,10 @@ import (
 )
 
 func main() {
-	err := godotenv.Load()
-	if err != nil {
-		log.Println(".env file not found")
+	if os.Getenv("GIN_MODE") != "release" {
+		if err := godotenv.Load(); err != nil {
+			log.Println(".env file not found")
+		}
 	}
 	cfg := config.Load()
 

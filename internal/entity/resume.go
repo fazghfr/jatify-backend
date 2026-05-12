@@ -4,6 +4,7 @@ import "github.com/google/uuid"
 
 type Resume struct {
 	ID       int       `gorm:"primaryKey;autoIncrement" json:"id"`
+	Name     string    `gorm:"type:varchar(255);not null;default:''" json:"name"`
 	Filepath string    `gorm:"type:text;not null" json:"filepath"`
 	UserID   int       `gorm:"not null" json:"user_id"`
 	UUID     uuid.UUID `gorm:"type:varchar(36);not null" json:"uuid"`

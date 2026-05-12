@@ -14,7 +14,7 @@ import (
 )
 
 type ResumeService interface {
-	Create(userID int, file io.ReadSeeker, originalName string) (*entity.Resume, error)
+	Create(userID int, file io.ReadSeeker, originalName string, name string) (*entity.Resume, error)
 	GetAll(userID int) ([]entity.Resume, error)
 	GetPage(userID int, page, pageSize int) (*dto.PaginatedResumeResponse, error)
 	GetByID(userID, id int) (*entity.Resume, error)
@@ -30,7 +30,7 @@ func NewResumeService(repo repository.ResumeRepository) ResumeService {
 	return &resumeService{repo: repo}
 }
 
-func (s *resumeService) Create(userID int, file io.ReadSeeker, originalName string) (*entity.Resume, error) {
+func (s *resumeService) Create(userID int, file io.ReadSeeker, originalName string, name string) (*entity.Resume, error) {
 	id := uuid.New()
 	ext := filepath.Ext(originalName)
 	dir := fmt.Sprintf("uploads/%d", userID)
@@ -53,6 +53,7 @@ func (s *resumeService) Create(userID int, file io.ReadSeeker, originalName stri
 	}
 
 	resume := &entity.Resume{
+		Name:     name,
 		Filepath: savePath,
 		UserID:   userID,
 		UUID:     id,
@@ -109,6 +110,9 @@ func (s *resumeService) Update(userID, id int, req *dto.UpdateResumeRequest) (*e
 		return nil, ErrForbidden
 	}
 
+	if req.Name != nil {
+		resume.Name = *req.Name
+	}
 	if req.Filepath != nil {
 		resume.Filepath = *req.Filepath
 	}

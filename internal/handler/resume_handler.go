@@ -5,6 +5,7 @@ import (
 	"io"
 	"net/http"
 	"strconv"
+	"strings"
 
 	"job-tracker/internal/middleware"
 	"job-tracker/internal/service"
@@ -47,7 +48,12 @@ func (h *ResumeHandler) Create(c *gin.Context) {
 	}
 	file.Seek(0, io.SeekStart)
 
-	resume, err := h.svc.Create(userID, file, header.Filename)
+	name := strings.TrimSpace(c.PostForm("name"))
+	if name == "" {
+		name = header.Filename
+	}
+
+	resume, err := h.svc.Create(userID, file, header.Filename, name)
 	if err != nil {
 		util.InternalError(c, err.Error())
 		return

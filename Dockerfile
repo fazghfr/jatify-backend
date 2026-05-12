@@ -10,6 +10,8 @@ RUN go build -o bin/app .
 
 FROM alpine:3.19
 
+RUN apk add --no-cache poppler-utils
+
 WORKDIR /app
 
 COPY --from=builder /app/bin/app .

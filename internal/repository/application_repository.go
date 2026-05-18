@@ -78,7 +78,7 @@ func (r *applicationRepository) FindByNotionPageID(pageID string) (*entity.Appli
 }
 
 func (r *applicationRepository) Update(app *entity.Application) error {
-	return r.db.Save(app).Error
+	return r.db.Model(app).Select("job_id", "resume_id", "status_id", "text", "updated_at").Updates(app).Error
 }
 
 func (r *applicationRepository) UpdateTimestamps(id int, t time.Time) error {

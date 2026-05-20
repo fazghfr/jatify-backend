@@ -13,6 +13,7 @@ const defaultBaseURL = "https://openrouter.ai/api/v1"
 // ORClient is the interface the service depends on.
 type ORClient interface {
 	AnalyzeResume(ctx context.Context, resumeText string) (string, error)
+	AnalyzeJobMatch(ctx context.Context, resumeText string, jobDescription string) (string, error)
 }
 
 // Client is the concrete OpenRouter HTTP client.
@@ -64,6 +65,52 @@ return a JSON object with the following fields:
   strengths ([]string), weaknesses ([]string),
   improvement_suggestions ([]string), overall_score (int, 1-10).
 Return only the JSON object, no extra prose.`
+
+const jobMatchSystemPrompt = `You are an expert recruiter. Compare the provided resume against the job description and return a JSON object with exactly these fields:
+  score (int, 0-100), strengths ([]string), skills_match ([]string), gaps ([]string), suggestions ([]string).
+Return only the JSON object, no extra prose.`
+
+// AnalyzeJobMatch sends resume text and job description to OpenRouter and returns raw JSON.
+func (c *Client) AnalyzeJobMatch(ctx context.Context, resumeText string, jobDescription string) (string, error) {
+	userMsg := "Resume:\n" + resumeText + "\n\nJob Description:\n" + jobDescription
+	body, err := json.Marshal(chatRequest{
+		Model: c.model,
+		Messages: []message{
+			{Role: "system", Content: jobMatchSystemPrompt},
+			{Role: "user", Content: userMsg},
+		},
+	})
+	if err != nil {
+		return "", err
+	}
+
+	req, err := http.NewRequestWithContext(ctx, http.MethodPost,
+		c.baseURL+"/chat/completions", bytes.NewReader(body))
+	if err != nil {
+		return "", err
+	}
+	req.Header.Set("Authorization", "Bearer "+c.apiKey)
+	req.Header.Set("Content-Type", "application/json")
+
+	resp, err := c.http.Do(req)
+	if err != nil {
+		return "", err
+	}
+	defer resp.Body.Close()
+
+	if resp.StatusCode != http.StatusOK {
+		return "", fmt.Errorf("openrouter: unexpected status %d", resp.StatusCode)
+	}
+
+	var result chatResponse
+	if err := json.NewDecoder(resp.Body).Decode(&result); err != nil {
+		return "", err
+	}
+	if len(result.Choices) == 0 {
+		return "", fmt.Errorf("openrouter: no choices in response")
+	}
+	return result.Choices[0].Message.Content, nil
+}
 
 // AnalyzeResume sends the resume text to OpenRouter and returns the raw JSON string.
 func (c *Client) AnalyzeResume(ctx context.Context, resumeText string) (string, error) {

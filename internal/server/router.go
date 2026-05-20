@@ -17,6 +17,8 @@ func RegisterRoutes(
 	notionHandler *handler.NotionHandler,
 	rajHandler *handler.ResumeAnalyzerJobHandler,
 	dlqHandler *handler.DLQHandler,
+	appAnalysisHandler *handler.ApplicationAnalysisHandler,
+	appAnalysisDLQHandler *handler.ApplicationAnalysisDLQHandler,
 	jwtSecret string,
 ) {
 	r.Static("/uploads", "./uploads")
@@ -78,6 +80,18 @@ func RegisterRoutes(
 			dlq.POST("/requeue", dlqHandler.RequeueBulk)
 			dlq.POST("/:uuid/requeue", dlqHandler.RequeueSingle)
 			dlq.DELETE("/:uuid", dlqHandler.Delete)
+		}
+
+		applications.POST("/:id/analysis", appAnalysisHandler.Enqueue)
+		applications.GET("/:id/analysis", appAnalysisHandler.GetLatest)
+		applications.GET("/:id/analysis/history", appAnalysisHandler.GetHistory)
+
+		appAnalysisDLQ := protected.Group("/app-analysis-dlq")
+		{
+			appAnalysisDLQ.GET("", appAnalysisDLQHandler.List)
+			appAnalysisDLQ.POST("/requeue", appAnalysisDLQHandler.RequeueBulk)
+			appAnalysisDLQ.POST("/:uuid/requeue", appAnalysisDLQHandler.RequeueSingle)
+			appAnalysisDLQ.DELETE("/:uuid", appAnalysisDLQHandler.Delete)
 		}
 
 		notion := protected.Group("/notion")

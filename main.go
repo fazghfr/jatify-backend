@@ -68,6 +68,22 @@ func main() {
 	})
 	workerPool.Start()
 
+	// Application analysis
+	appAnalysisJobCh := make(chan int, 30)
+	appAnalysisJobRepo := repository.NewApplicationAnalysisJobRepository(db)
+	appAnalysisDLQRepo := repository.NewApplicationAnalysisDLQRepository(db)
+	appAnalysisJobSvc := service.NewApplicationAnalysisJobService(appAnalysisJobRepo, appRepo, appAnalysisJobCh)
+	appAnalysisDLQSvc := service.NewApplicationAnalysisDLQService(appAnalysisDLQRepo)
+	appSvc.SetAnalysisEnqueuer(appAnalysisJobSvc)
+
+	appAnalysisWorkerPool := worker.NewAppAnalysisPool(context.Background(), appAnalysisJobCh, worker.AppAnalysisDeps{
+		AppRepo:  appRepo,
+		JobRepo:  appAnalysisJobRepo,
+		DLQRepo:  appAnalysisDLQRepo,
+		ORClient: orClient,
+	})
+	appAnalysisWorkerPool.Start()
+
 	// Handlers
 	authHandler := handler.NewAuthHandler(authSvc)
 	appHandler := handler.NewApplicationHandler(appSvc)
@@ -77,10 +93,12 @@ func main() {
 	notionHandler := handler.NewNotionHandler(notionSvc)
 	rajHandler := handler.NewResumeAnalyzerJobHandler(rajSvc)
 	dlqHandler := handler.NewDLQHandler(dlqSvc)
+	appAnalysisHandler := handler.NewApplicationAnalysisHandler(appAnalysisJobSvc)
+	appAnalysisDLQHandler := handler.NewApplicationAnalysisDLQHandler(appAnalysisDLQSvc)
 
 	// Server
 	r := server.NewEngine()
-	server.RegisterRoutes(r, authHandler, appHandler, jobHandler, resumeHandler, statusHandler, notionHandler, rajHandler, dlqHandler, cfg.JWTSecret)
+	server.RegisterRoutes(r, authHandler, appHandler, jobHandler, resumeHandler, statusHandler, notionHandler, rajHandler, dlqHandler, appAnalysisHandler, appAnalysisDLQHandler, cfg.JWTSecret)
 
 	log.Printf("server running on port %s", cfg.ServerPort)
 	if err := server.Run(r, cfg.ServerPort); err != nil {

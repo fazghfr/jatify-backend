@@ -13,6 +13,7 @@ type ApplicationRepository interface {
 	FindAllByUserID(userID int) ([]entity.Application, error)
 	FindPageByUserID(userID, offset, limit int) ([]entity.Application, int64, error)
 	FindByID(id int) (*entity.Application, error)
+	FindByUUID(uuid string) (*entity.Application, error)
 	FindByNotionPageID(pageID string) (*entity.Application, error)
 	Update(app *entity.Application) error
 	UpdateTimestamps(id int, t time.Time) error
@@ -62,6 +63,17 @@ func (r *applicationRepository) FindByID(id int) (*entity.Application, error) {
 	var app entity.Application
 	err := r.db.Preload("Status").Preload("Job").Preload("Resume").Preload("StatusHistory").
 		First(&app, id).Error
+	if err != nil {
+		return nil, err
+	}
+	return &app, nil
+}
+
+func (r *applicationRepository) FindByUUID(uuid string) (*entity.Application, error) {
+	var app entity.Application
+	err := r.db.Where("uuid = ?", uuid).
+		Preload("Job").Preload("Resume").
+		First(&app).Error
 	if err != nil {
 		return nil, err
 	}

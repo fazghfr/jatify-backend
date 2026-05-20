@@ -1,7 +1,9 @@
 package service
 
 import (
+	"context"
 	"errors"
+	"log"
 
 	"job-tracker/internal/dto"
 	"job-tracker/internal/entity"
@@ -19,11 +21,13 @@ type ApplicationService interface {
 	GetByID(userID, id int) (*entity.Application, error)
 	Update(userID, id int, req *dto.UpdateApplicationRequest) (*entity.Application, error)
 	Delete(userID, id int) error
+	SetAnalysisEnqueuer(e AnalysisEnqueuer)
 }
 
 type applicationService struct {
-	appRepo     repository.ApplicationRepository
-	historyRepo repository.StatusHistoryRepository
+	appRepo          repository.ApplicationRepository
+	historyRepo      repository.StatusHistoryRepository
+	analysisEnqueuer AnalysisEnqueuer
 }
 
 func NewApplicationService(
@@ -31,6 +35,10 @@ func NewApplicationService(
 	historyRepo repository.StatusHistoryRepository,
 ) ApplicationService {
 	return &applicationService{appRepo: appRepo, historyRepo: historyRepo}
+}
+
+func (s *applicationService) SetAnalysisEnqueuer(e AnalysisEnqueuer) {
+	s.analysisEnqueuer = e
 }
 
 func (s *applicationService) Create(userID int, req *dto.CreateApplicationRequest) (*entity.Application, error) {
@@ -51,6 +59,12 @@ func (s *applicationService) Create(userID int, req *dto.CreateApplicationReques
 		ApplicationID: app.ID,
 		StatusID:      app.StatusID,
 	})
+
+	if s.analysisEnqueuer != nil {
+		if err := s.analysisEnqueuer.AutoEnqueue(context.Background(), userID, app.ID); err != nil {
+			log.Printf("auto-enqueue analysis failed for app %d: %v", app.ID, err)
+		}
+	}
 
 	return app, nil
 }
@@ -107,6 +121,8 @@ func (s *applicationService) Update(userID, id int, req *dto.UpdateApplicationRe
 	}
 
 	prevStatusID := app.StatusID
+	prevResumeID := app.ResumeID
+	prevJobID := app.JobID
 
 	if req.ResumeID != nil {
 		app.ResumeID = req.ResumeID
@@ -130,6 +146,14 @@ func (s *applicationService) Update(userID, id int, req *dto.UpdateApplicationRe
 			ApplicationID: app.ID,
 			StatusID:      app.StatusID,
 		})
+	}
+
+	resumeChanged := req.ResumeID != nil && (prevResumeID == nil || *req.ResumeID != *prevResumeID)
+	jobChanged := req.JobID != nil && *req.JobID != prevJobID
+	if (resumeChanged || jobChanged) && s.analysisEnqueuer != nil {
+		if err := s.analysisEnqueuer.AutoEnqueue(context.Background(), userID, app.ID); err != nil {
+			log.Printf("auto-enqueue analysis failed for app %d: %v", app.ID, err)
+		}
 	}
 
 	return app, nil

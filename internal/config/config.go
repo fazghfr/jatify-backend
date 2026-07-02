@@ -34,7 +34,7 @@ func Load() *Config {
 		NotionRedirectURI:  getEnv("NOTION_REDIRECT_URI", ""),
 
 		OpenRouterAPIKey: getEnv("OPENROUTER_API_KEY", ""),
-		OpenRouterModel:  getEnv("OPENROUTER_MODEL", "openai/gpt-4o-mini"),
+		OpenRouterModel:  getEnv("OPENROUTER_MODEL", "openai/gpt-oss-120b:free"),
 	}
 }
 

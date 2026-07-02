@@ -5,6 +5,7 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
+	"io"
 	"net/http"
 )
 
@@ -140,7 +141,8 @@ func (c *Client) AnalyzeResume(ctx context.Context, resumeText string) (string, 
 	defer resp.Body.Close()
 
 	if resp.StatusCode != http.StatusOK {
-		return "", fmt.Errorf("openrouter: unexpected status %d", resp.StatusCode)
+		b, _ := io.ReadAll(resp.Body)
+		return "", fmt.Errorf("openrouter: status %d: %s", resp.StatusCode, string(b))
 	}
 
 	var result chatResponse

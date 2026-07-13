@@ -73,7 +73,12 @@ func (r *ResumeAnalysisDLQRepo) Requeue(Rtype string, userid int, dlqUUID string
 				return fmt.Errorf("forbidden")
 			}
 
-			if err := tx.Model(&job).Update("status", "pending").Error; err != nil {
+			if err := tx.Model(&job).Updates(map[string]interface{}{
+				"status":        "pending",
+				"retry_count":   0,
+				"next_retry_at": nil,
+				"error_msg":     nil,
+			}).Error; err != nil {
 				return err
 			}
 
@@ -116,7 +121,12 @@ func (r *ResumeAnalysisDLQRepo) Requeue(Rtype string, userid int, dlqUUID string
 
 			if err := tx.Model(&entity.ResumeAnalysisJob{}).
 				Where("uuid IN ?", jobUUIDs).
-				Update("status", "pending").Error; err != nil {
+				Updates(map[string]interface{}{
+					"status":        "pending",
+					"retry_count":   0,
+					"next_retry_at": nil,
+					"error_msg":     nil,
+				}).Error; err != nil {
 				return err
 			}
 

@@ -99,7 +99,7 @@ func main() {
 
 	// Discord bot (skipped cleanly when no token configured)
 	if cfg.DiscordToken != "" {
-		if bot, err := discord.New(cfg); err != nil {
+		if bot, err := discord.New(cfg, appSvc, jobRepo, statusRepo); err != nil {
 			log.Printf("discord bot init failed: %v", err)
 		} else if err := bot.Start(); err != nil {
 			log.Printf("discord bot start failed: %v", err)

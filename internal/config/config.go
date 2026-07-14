@@ -1,6 +1,9 @@
 package config
 
-import "os"
+import (
+	"os"
+	"strconv"
+)
 
 type Config struct {
 	DBHost     string
@@ -18,8 +21,9 @@ type Config struct {
 	OpenRouterAPIKey string
 	OpenRouterModel  string
 
-	DiscordToken  string
-	DiscordPrefix string
+	DiscordToken         string
+	DiscordPrefix        string
+	DiscordDefaultUserID int
 }
 
 func Load() *Config {
@@ -39,8 +43,9 @@ func Load() *Config {
 		OpenRouterAPIKey: getEnv("OPENROUTER_API_KEY", ""),
 		OpenRouterModel:  getEnv("OPENROUTER_MODEL", "openai/gpt-oss-120b:free"),
 
-		DiscordToken:  getEnv("DISCORD_TOKEN", ""),
-		DiscordPrefix: getEnv("DISCORD_PREFIX", "!"),
+		DiscordToken:         getEnv("DISCORD_TOKEN", ""),
+		DiscordPrefix:        getEnv("DISCORD_PREFIX", "!"),
+		DiscordDefaultUserID: getEnvInt("DISCORD_DEFAULT_USER_ID", 0),
 	}
 }
 
@@ -56,6 +61,13 @@ func (c *Config) DSN() string {
 func getEnv(key, fallback string) string {
 	if v := os.Getenv(key); v != "" {
 		return v
+	}
+	return fallback
+}
+
+func getEnvInt(key string, fallback int) int {
+	if n, err := strconv.Atoi(os.Getenv(key)); err == nil {
+		return n
 	}
 	return fallback
 }

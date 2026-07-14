@@ -1,8 +1,10 @@
 package discord
 
 import (
+	"strings"
 	"testing"
 
+	"job-tracker/internal/dto"
 	"job-tracker/internal/entity"
 )
 
@@ -32,6 +34,56 @@ func TestParseAdd(t *testing.T) {
 	}
 }
 
+func TestParseEdit(t *testing.T) {
+	tests := []struct {
+		name       string
+		in         string
+		wantID     int
+		wantStatus string
+		ok         bool
+	}{
+		{"id and status", "12 Interview", 12, "Interview", true},
+		{"multi-word status", "3 In Progress", 3, "In Progress", true},
+		{"whitespace trimmed", "  7   Offer  ", 7, "Offer", true},
+		{"non-numeric id", "abc Offer", 0, "", false},
+		{"missing status", "12", 0, "", false},
+		{"empty", "", 0, "", false},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			gotID, gotStatus, ok := parseEdit(tt.in)
+			if ok != tt.ok {
+				t.Fatalf("ok = %v, want %v", ok, tt.ok)
+			}
+			if ok && (gotID != tt.wantID || gotStatus != tt.wantStatus) {
+				t.Fatalf("got (%d, %q), want (%d, %q)", gotID, gotStatus, tt.wantID, tt.wantStatus)
+			}
+		})
+	}
+}
+
+func TestFormatView(t *testing.T) {
+	res := &dto.PaginatedApplicationsResponse{
+		Data: []entity.Application{{
+			ID:     12,
+			Job:    &entity.Job{Company: "Tokopedia", Position: "Backend Engineer"},
+			Status: &entity.Status{Text: "Interview"},
+		}},
+		Pagination: dto.Pagination{Page: 1, TotalPages: 2, Total: 25},
+	}
+	out := formatView(res)
+	for _, want := range []string{"#12", "Backend Engineer", "Tokopedia", "Interview", "page 1/2 (25 total)"} {
+		if !strings.Contains(out, want) {
+			t.Fatalf("formatView output missing %q:\n%s", want, out)
+		}
+	}
+
+	empty := &dto.PaginatedApplicationsResponse{Data: []entity.Application{}, Pagination: dto.Pagination{Page: 3}}
+	if got := formatView(empty); !strings.Contains(got, "No applications on page 3") {
+		t.Fatalf("empty view = %q", got)
+	}
+}
+
 type stubStatusRepo struct{ statuses []entity.Status }
 
 func (s stubStatusRepo) FindAll() ([]entity.Status, error) { return s.statuses, nil }
@@ -44,10 +96,10 @@ func TestResolveStatusID(t *testing.T) {
 		name string
 		want int
 	}{
-		{"", 1},              // empty → default Applied
-		{"Interview", 3},     // known → its id
-		{"interview", 3},     // case-insensitive
-		{"Nonexistent", 1},   // unknown → default
+		{"", 1},            // empty → default Applied
+		{"Interview", 3},   // known → its id
+		{"interview", 3},   // case-insensitive
+		{"Nonexistent", 1}, // unknown → default
 	}
 	for _, tt := range tests {
 		got, err := b.resolveStatusID(tt.name)

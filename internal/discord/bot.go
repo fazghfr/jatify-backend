@@ -1,8 +1,10 @@
 package discord
 
 import (
+	"errors"
 	"fmt"
 	"log"
+	"strconv"
 	"strings"
 
 	"job-tracker/internal/config"
@@ -13,6 +15,7 @@ import (
 
 	"github.com/bwmarrin/discordgo"
 	"github.com/google/uuid"
+	"gorm.io/gorm"
 )
 
 // Bot is the Discord inbound adapter. It reuses the existing service/repository
@@ -67,6 +70,10 @@ func (b *Bot) messageCreate(s *discordgo.Session, m *discordgo.MessageCreate) {
 		b.reply(m.ChannelID, "pong")
 	case "add":
 		b.handleAdd(m.ChannelID, args)
+	case "edit":
+		b.handleEdit(m.ChannelID, args)
+	case "view":
+		b.handleView(m.ChannelID, args)
 	}
 }
 
@@ -127,7 +134,93 @@ func (b *Bot) handleAdd(channelID, args string) {
 		return
 	}
 
-	b.reply(channelID, fmt.Sprintf("Application added successfully\napplication_id: %s\njob_id: %s", app.UUID, job.UUID))
+	b.reply(channelID, fmt.Sprintf("Application added successfully\napplication_id: %d\njob_id: %d", app.ID, job.ID))
+}
+
+// parseEdit splits "<id> <status words…>" into the application id + status name.
+func parseEdit(args string) (id int, status string, ok bool) {
+	idStr, status, _ := strings.Cut(strings.TrimSpace(args), " ")
+	status = strings.TrimSpace(status)
+	id, err := strconv.Atoi(idStr)
+	if err != nil || status == "" {
+		return 0, "", false
+	}
+	return id, status, true
+}
+
+func (b *Bot) handleEdit(channelID, args string) {
+	id, status, ok := parseEdit(args)
+	if !ok {
+		b.reply(channelID, "usage: "+b.prefix+"edit <application_id> <status>")
+		return
+	}
+
+	sid, err := b.resolveStatusID(status)
+	if err != nil {
+		log.Printf("discord edit: status lookup failed: %v", err)
+		b.reply(channelID, "failed: status lookup error")
+		return
+	}
+
+	// appSvc.Update looks up by id and enforces ownership, so no repo call here.
+	if _, err := b.appSvc.Update(b.userID, id, &dto.UpdateApplicationRequest{StatusID: &sid}); err != nil {
+		switch {
+		case errors.Is(err, gorm.ErrRecordNotFound):
+			b.reply(channelID, "failed: application not found")
+		case errors.Is(err, service.ErrForbidden):
+			b.reply(channelID, "failed: not your application")
+		default:
+			log.Printf("discord edit: update failed: %v", err)
+			b.reply(channelID, "failed: could not update application")
+		}
+		return
+	}
+
+	b.reply(channelID, "success")
+}
+
+const viewPageSize = 20
+
+func (b *Bot) handleView(channelID, args string) {
+	page := 1
+	if fields := strings.Fields(args); len(fields) > 0 {
+		if n, err := strconv.Atoi(fields[0]); err == nil && n > 0 {
+			page = n
+		}
+	}
+
+	res, err := b.appSvc.GetPage(b.userID, page, viewPageSize)
+	if err != nil {
+		log.Printf("discord view: getpage failed: %v", err)
+		b.reply(channelID, "failed: could not load applications")
+		return
+	}
+	b.reply(channelID, formatView(res))
+}
+
+// formatView renders a page of applications as plain text. The id is shown so
+// it can be copied into !edit.
+// ponytail: a full page (20 rows) can approach Discord's 2000-char message
+// limit with long company/position names; lower viewPageSize or paginate the
+// reply if that bites.
+func formatView(res *dto.PaginatedApplicationsResponse) string {
+	p := res.Pagination
+	if len(res.Data) == 0 {
+		return fmt.Sprintf("No applications on page %d.", p.Page)
+	}
+	var sb strings.Builder
+	for _, app := range res.Data {
+		company, position, status := "?", "?", "?"
+		if app.Job != nil {
+			company, position = app.Job.Company, app.Job.Position
+		}
+		if app.Status != nil {
+			status = app.Status.Text
+		}
+		fmt.Fprintf(&sb, "#%d | %s @ %s | %s\n", app.ID, position, company, status)
+	}
+	fmt.Fprintf(&sb, "page %d/%d (%d total)", p.Page, p.TotalPages, p.Total)
+	return sb.String()
 }
 
 // resolveStatusID maps a status name to its id, defaulting to 1 (Applied) when

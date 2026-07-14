@@ -17,6 +17,9 @@ type Config struct {
 
 	OpenRouterAPIKey string
 	OpenRouterModel  string
+
+	DiscordToken  string
+	DiscordPrefix string
 }
 
 func Load() *Config {
@@ -35,6 +38,9 @@ func Load() *Config {
 
 		OpenRouterAPIKey: getEnv("OPENROUTER_API_KEY", ""),
 		OpenRouterModel:  getEnv("OPENROUTER_MODEL", "openai/gpt-oss-120b:free"),
+
+		DiscordToken:  getEnv("DISCORD_TOKEN", ""),
+		DiscordPrefix: getEnv("DISCORD_PREFIX", "!"),
 	}
 }
 

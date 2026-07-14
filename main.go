@@ -7,6 +7,7 @@ import (
 
 	"job-tracker/internal/config"
 	"job-tracker/internal/database"
+	"job-tracker/internal/discord"
 	"job-tracker/internal/handler"
 	"job-tracker/internal/openrouter"
 	"job-tracker/internal/repository"
@@ -95,6 +96,17 @@ func main() {
 	dlqHandler := handler.NewDLQHandler(dlqSvc)
 	appAnalysisHandler := handler.NewApplicationAnalysisHandler(appAnalysisJobSvc)
 	appAnalysisDLQHandler := handler.NewApplicationAnalysisDLQHandler(appAnalysisDLQSvc)
+
+	// Discord bot (skipped cleanly when no token configured)
+	if cfg.DiscordToken != "" {
+		if bot, err := discord.New(cfg, appSvc, jobRepo, statusRepo); err != nil {
+			log.Printf("discord bot init failed: %v", err)
+		} else if err := bot.Start(); err != nil {
+			log.Printf("discord bot start failed: %v", err)
+		} else {
+			log.Println("discord bot connected")
+		}
+	}
 
 	// Server
 	r := server.NewEngine()

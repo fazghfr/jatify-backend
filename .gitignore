@@ -48,3 +48,9 @@ Thumbs.db
 temp/
 tmp/
 *.log
+
+graphify-out/
+_plans/
+_specs
+CLAUDE.md
+.claude

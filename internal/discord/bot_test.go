@@ -84,6 +84,36 @@ func TestFormatView(t *testing.T) {
 	}
 }
 
+// The !view footer is load-bearing: navigation reads the current page back out
+// of the sent message. If formatView and parseViewPage ever drift, this fails.
+func TestViewPageRoundTrip(t *testing.T) {
+	res := &dto.PaginatedApplicationsResponse{
+		Data: []entity.Application{{
+			ID:     12,
+			Job:    &entity.Job{Company: "Tokopedia", Position: "Backend Engineer"},
+			Status: &entity.Status{Text: "Interview"},
+		}},
+		Pagination: dto.Pagination{Page: 2, TotalPages: 5, Total: 93},
+	}
+	page, total, ok := parseViewPage(formatView(res))
+	if !ok || page != 2 || total != 5 {
+		t.Fatalf("round trip = (%d, %d, %v), want (2, 5, true)", page, total, ok)
+	}
+
+	// Empty pages carry no footer, so they are not navigable — and must not
+	// parse as page 0.
+	empty := &dto.PaginatedApplicationsResponse{Data: []entity.Application{}, Pagination: dto.Pagination{Page: 3}}
+	if _, _, ok := parseViewPage(formatView(empty)); ok {
+		t.Fatal("empty view parsed as navigable")
+	}
+
+	for _, in := range []string{"", "pong", "Application added successfully\napplication_id: 4"} {
+		if _, _, ok := parseViewPage(in); ok {
+			t.Fatalf("non-view message %q parsed as navigable", in)
+		}
+	}
+}
+
 type stubStatusRepo struct{ statuses []entity.Status }
 
 func (s stubStatusRepo) FindAll() ([]entity.Status, error) { return s.statuses, nil }

@@ -4,6 +4,7 @@ import (
 	"errors"
 	"fmt"
 	"log"
+	"regexp"
 	"strconv"
 	"strings"
 
@@ -37,7 +38,7 @@ func New(cfg *config.Config, appSvc service.ApplicationService, jobRepo reposito
 	}
 	// Message Content is a privileged intent — must be enabled in the Discord
 	// Developer Portal for this bot, or messageCreate content arrives empty.
-	session.Identify.Intents = discordgo.IntentsGuildMessages | discordgo.IntentMessageContent
+	session.Identify.Intents = discordgo.IntentsGuildMessages | discordgo.IntentMessageContent | discordgo.IntentsGuildMessageReactions
 
 	b := &Bot{
 		session:    session,
@@ -48,6 +49,8 @@ func New(cfg *config.Config, appSvc service.ApplicationService, jobRepo reposito
 		prefix:     cfg.DiscordPrefix,
 	}
 	session.AddHandler(b.messageCreate)
+	session.AddHandler(b.reactionAdd)
+	session.AddHandler(b.reactionRemove)
 	return b, nil
 }
 
@@ -179,7 +182,13 @@ func (b *Bot) handleEdit(channelID, args string) {
 	b.reply(channelID, "success")
 }
 
-const viewPageSize = 20
+const viewPageSize = 10
+
+// Navigation reactions on a !view message.
+const (
+	prevEmoji = "◀️"
+	nextEmoji = "▶️"
+)
 
 func (b *Bot) handleView(channelID, args string) {
 	page := 1
@@ -195,7 +204,21 @@ func (b *Bot) handleView(channelID, args string) {
 		b.reply(channelID, "failed: could not load applications")
 		return
 	}
-	b.reply(channelID, formatView(res))
+
+	msg, err := b.session.ChannelMessageSend(channelID, formatView(res))
+	if err != nil {
+		log.Printf("discord view: reply failed: %v", err)
+		return
+	}
+	if res.Pagination.TotalPages <= 1 {
+		return
+	}
+	for _, emoji := range []string{prevEmoji, nextEmoji} {
+		if err := b.session.MessageReactionAdd(channelID, msg.ID, emoji); err != nil {
+			log.Printf("discord view: add reaction failed: %v", err)
+			return
+		}
+	}
 }
 
 // formatView renders a page of applications as plain text. The id is shown so
@@ -221,6 +244,76 @@ func formatView(res *dto.PaginatedApplicationsResponse) string {
 	}
 	fmt.Fprintf(&sb, "page %d/%d (%d total)", p.Page, p.TotalPages, p.Total)
 	return sb.String()
+}
+
+var viewPageRe = regexp.MustCompile(`^page (\d+)/(\d+) \(`)
+
+// parseViewPage reads the footer formatView writes back off a sent message.
+// That footer is the only place the current page lives — there is no session
+// state, so navigation survives restarts and needs no eviction.
+func parseViewPage(content string) (page, total int, ok bool) {
+	lines := strings.Split(strings.TrimSpace(content), "\n")
+	m := viewPageRe.FindStringSubmatch(lines[len(lines)-1])
+	if m == nil {
+		return 0, 0, false
+	}
+	page, _ = strconv.Atoi(m[1])
+	total, _ = strconv.Atoi(m[2])
+	return page, total, true
+}
+
+func (b *Bot) reactionAdd(s *discordgo.Session, r *discordgo.MessageReactionAdd) {
+	b.navigate(r.MessageReaction)
+}
+
+func (b *Bot) reactionRemove(s *discordgo.Session, r *discordgo.MessageReactionRemove) {
+	b.navigate(r.MessageReaction)
+}
+
+// navigate re-renders a !view message one page in the direction of the emoji.
+// ponytail: reacting and un-reacting both step a page — clearing the user's
+// reaction so ▶ can be re-clicked would need MANAGE_MESSAGES and a delete call
+// per click. Switch to reaction-removal if the toggle behaviour confuses people.
+func (b *Bot) navigate(r *discordgo.MessageReaction) {
+	self := b.session.State.User
+	if self == nil || r.UserID == self.ID {
+		return
+	}
+	var delta int
+	switch r.Emoji.Name {
+	case prevEmoji:
+		delta = -1
+	case nextEmoji:
+		delta = 1
+	default:
+		return
+	}
+
+	msg, err := b.session.ChannelMessage(r.ChannelID, r.MessageID)
+	if err != nil {
+		log.Printf("discord nav: fetch message failed: %v", err)
+		return
+	}
+	if msg.Author == nil || msg.Author.ID != self.ID {
+		return
+	}
+	page, total, ok := parseViewPage(msg.Content)
+	if !ok {
+		return
+	}
+	target := page + delta
+	if target < 1 || target > total {
+		return
+	}
+
+	res, err := b.appSvc.GetPage(b.userID, target, viewPageSize)
+	if err != nil {
+		log.Printf("discord nav: getpage failed: %v", err)
+		return
+	}
+	if _, err := b.session.ChannelMessageEdit(r.ChannelID, r.MessageID, formatView(res)); err != nil {
+		log.Printf("discord nav: edit failed: %v", err)
+	}
 }
 
 // resolveStatusID maps a status name to its id, defaulting to 1 (Applied) when
